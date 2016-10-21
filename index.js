@@ -28,6 +28,7 @@ function addDeletionCheck(softFields) {
 }
 
 function setSoftDeleteOptions(soft) {
+  this.softCalled = false;
   if (Array.isArray(soft)) {
     this.softFields = soft;
     this.softActivated = true;
@@ -53,7 +54,8 @@ module.exports = function (Bookshelf) {
     },
 
     fetch: function (opts) {
-      if (this.softActivated && !shouldDisable(opts)) {
+      if (this.softActivated && !this.softCalled && !shouldDisable(opts)) {
+        this.softCalled = true;
         addDeletionCheck.call(this, this.softFields);
       }
       return mProto.fetch.apply(this, arguments);
@@ -100,7 +102,12 @@ module.exports = function (Bookshelf) {
   });
 
   Bookshelf.Collection = Bookshelf.Collection.extend({
+    softCalled: false,
     fetch: function (opts) {
+      if (this.softCalled) {
+        return cProto.fetch.apply(this, arguments);
+      }
+      this.softCalled = true;
       var modelOpts = {};
       setSoftDeleteOptions.call(modelOpts, this.model.prototype.soft);
 
@@ -111,6 +118,10 @@ module.exports = function (Bookshelf) {
     },
 
     count: function (field, opts) {
+      if (this.softCalled) {
+        return cProto.count.apply(this, arguments);
+      }
+      this.softCalled = true;
       opts = opts || field;
 
       var modelOpts = {};
